@@ -5,12 +5,12 @@ import (
 	"github.com/creativelikeadog/revel-oauth/app/strategies"
 	"github.com/golang/oauth2"
 	"github.com/revel/revel"
+	"github.com/revel/revel/cache"
 	"strings"
 )
 
 const (
-	SESSION_KEY          string = "oauth2"
-	SESSION_KEY_PROVIDER string = SESSION_KEY + "_provider"
+	SESSION_KEY string = "oauth2"
 )
 
 var (
@@ -95,46 +95,30 @@ func appendProvider(p *ProviderConfig, s string, e string) error {
 	return nil
 }
 
-func getUser(c *revel.Controller) (bool, interface{}) {
+func GetUser(c *revel.Controller) (*strategies.UserModel, bool) {
 	if value, ok := c.Session[SESSION_KEY]; ok {
-		if v, ok := c.Session[SESSION_KEY_PROVIDER]; ok {
-			return true, struct{ UserId, Provider string }{value, v}
-		} else {
-			return false, nil
+		var user *strategies.UserModel
+		if err := cache.Get(value, &user); err == nil {
+			return user, true
 		}
 	}
-	return false, nil
+	return nil, false
 }
 
 func Login(c *revel.Controller, userData *strategies.UserModel) {
-	c.Session[SESSION_KEY] = userData.Id
-	c.Session[SESSION_KEY_PROVIDER] = userData.Provider
-	c.Session.SetDefaultExpiration()
+	c.Session[SESSION_KEY] = c.Session.Id()
+	go cache.Set(c.Session.Id(), userData, cache.DEFAULT)
 }
 
 func Logout(c *revel.Controller) {
+	if value, ok := c.Session[SESSION_KEY]; ok {
+		go cache.Delete(value)
+	}
 	for k := range c.Session {
 		delete(c.Session, k)
 	}
 }
 
-type OAuthInterceptor struct {
-	*revel.Controller
-	UserData interface{}
-	Redir    string
-}
-
-func (c *OAuthInterceptor) Middleware() revel.Result {
-	if authorized, data := getUser(c.Controller); authorized == true {
-		c.UserData = data
-		return nil
-	} else {
-		return c.Forbidden("You need to login")
-	}
-	return nil
-}
-
 func init() {
 	revel.OnAppStart(Init)
-	revel.InterceptMethod((*OAuthInterceptor).Middleware, revel.BEFORE)
 }

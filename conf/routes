@@ -1,2 +1,1 @@
 *		/auth/:provider				OAuth.Auth
-GET		/logout						OAuth.Logout

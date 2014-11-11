@@ -27,11 +27,6 @@ func (c *OAuth) Auth(code string) revel.Result {
 	return c.Redirect(c.provider.OnFailure())
 }
 
-func (c *OAuth) Logout() revel.Result {
-	oauth.Logout(c.Controller)
-	return c.Redirect(c.provider.OnFailure())
-}
-
 func (c *OAuth) Provider() revel.Result {
 	p := c.Params.Get("provider")
 	cfg := oauth.Providers[p]
